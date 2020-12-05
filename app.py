@@ -11,6 +11,7 @@ app = Flask(__name__)
 app.secret_key = "fejfkle-efiwiwe-ewfklj-dcdsc"
 # It will allow below 50MB contents only
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['JSON_SORT_KEYS'] = False
 
 path = os.getcwd()
 # file Upload
@@ -28,22 +29,23 @@ def allowed_file(filename):
 
 
 def parsePCAP(pcap):
-    ports = set()
+    ports = dict()
 
     for (ts, buf) in pcap:
         try:
             eth = dpkt.ethernet.Ethernet(buf)
             if not isinstance(eth.data, dpkt.ip.IP):
-                # print('Non IP Packet type not supported %s\n' % eth.data.__class__.__name__)
                 continue
             ip = eth.data
             tcp = ip.data
             if tcp.dport:
-                ports.add(tcp.dport)
+                if str(tcp.dport) in ports:
+                    ports[str(tcp.dport)] = ports[str(tcp.dport)] + 1
+                else:
+                    ports[str(tcp.dport)] = 1
         except Exception as exception:
             pass
-    return sorted([x for x in iter(ports)])
-
+    return dict(sorted(ports.items(), key=lambda item: item[1], reverse=True))
 
 
 @app.route('/', methods=['POST'])
